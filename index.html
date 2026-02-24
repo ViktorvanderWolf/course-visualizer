@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Course Schedule Visualizer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+      background: #F5F5F7;
+      color: #1D1D1F;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── App Shell ─────────────────────────────── */
+    .app {
+      display: flex;
+      height: 100vh;
+      padding: 24px;
+      gap: 24px;
+    }
+
+    /* ── Card Base ─────────────────────────────── */
+    .card {
+      background: #FFFFFF;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.04);
+    }
+
+    /* ── Sidebar ───────────────────────────────── */
+    .sidebar {
+      width: 290px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── ECTS Tracker ──────────────────────────── */
+    .ects-tracker {
+      flex-shrink: 0;
+      padding: 24px;
+    }
+
+    .ects-display {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .ects-number {
+      font-size: 48px;
+      font-weight: 200;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: #1D1D1F;
+    }
+
+    .ects-unit {
+      font-size: 14px;
+      font-weight: 400;
+      color: #6E6E73;
+    }
+
+    .ects-bar-track {
+      margin-top: 16px;
+      height: 5px;
+      background: rgba(0,0,0,0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .ects-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #0071E3;
+      border-radius: 3px;
+      transition: width 200ms ease;
+    }
+
+    .ects-sub {
+      font-size: 12px;
+      font-weight: 300;
+      color: #6E6E73;
+      margin-top: 8px;
+    }
+
+    /* ── Course Selector ───────────────────────── */
+    .course-selector {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .course-selector::-webkit-scrollbar { width: 4px; }
+    .course-selector::-webkit-scrollbar-track { background: transparent; }
+    .course-selector::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+
+    .course-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 100ms ease;
+      user-select: none;
+    }
+
+    .course-item:hover { background: rgba(0,0,0,0.03); }
+
+    .course-checkbox {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      border: 1.5px solid rgba(0,0,0,0.2);
+      border-radius: 4px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 150ms ease, border-color 150ms ease;
+    }
+
+    .course-checkbox.checked {
+      background: #0071E3;
+      border-color: #0071E3;
+    }
+
+    .course-info { flex: 1; min-width: 0; }
+
+    .course-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #1D1D1F;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .course-meta {
+      font-size: 12px;
+      font-weight: 300;
+      color: #6E6E73;
+      margin-top: 2px;
+    }
+
+    .divider {
+      height: 1px;
+      background: rgba(0,0,0,0.05);
+      margin: 4px 12px;
+    }
+
+    /* ── Calendar Area ─────────────────────────── */
+    .calendar-area {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      gap: 24px;
+    }
+
+    .term-wrapper {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .term-title {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: #6E6E73;
+      text-transform: uppercase;
+    }
+
+    /* ── Calendar Grid ─────────────────────────── */
+    .term-grid {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 72px repeat(5, 1fr);
+      grid-template-rows: 32px repeat(6, 1fr);
+      gap: 2px;
+      background: rgba(0,0,0,0.06);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .g-corner { background: #EEEEEF; }
+
+    .g-day {
+      background: #EEEEEF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1D1D1F;
+    }
+
+    .g-period {
+      background: #EEEEEF;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: flex-start;
+      padding: 8px 10px 0 0;
+    }
+
+    .period-code {
+      font-size: 11px;
+      font-weight: 500;
+      color: #6E6E73;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.01em;
+    }
+
+    .period-time {
+      font-size: 10px;
+      font-weight: 400;
+      color: #AEAEB2;
+      margin-top: 2px;
+    }
+
+    .g-cell {
+      background: #FAFAFA;
+      position: relative;
+    }
+
+    /* ── Pin all 36 static grid children so appended blocks don't displace them ── */
+    .term-grid > :nth-child(1)  { grid-column:1; grid-row:1; }
+    .term-grid > :nth-child(2)  { grid-column:2; grid-row:1; }
+    .term-grid > :nth-child(3)  { grid-column:3; grid-row:1; }
+    .term-grid > :nth-child(4)  { grid-column:4; grid-row:1; }
+    .term-grid > :nth-child(5)  { grid-column:5; grid-row:1; }
+    .term-grid > :nth-child(6)  { grid-column:6; grid-row:1; }
+    .term-grid > :nth-child(7)  { grid-column:1; grid-row:2; }
+    .term-grid > :nth-child(8)  { grid-column:2; grid-row:2; }
+    .term-grid > :nth-child(9)  { grid-column:3; grid-row:2; }
+    .term-grid > :nth-child(10) { grid-column:4; grid-row:2; }
+    .term-grid > :nth-child(11) { grid-column:5; grid-row:2; }
+    .term-grid > :nth-child(12) { grid-column:6; grid-row:2; }
+    .term-grid > :nth-child(13) { grid-column:1; grid-row:3; }
+    .term-grid > :nth-child(14) { grid-column:2; grid-row:3; }
+    .term-grid > :nth-child(15) { grid-column:3; grid-row:3; }
+    .term-grid > :nth-child(16) { grid-column:4; grid-row:3; }
+    .term-grid > :nth-child(17) { grid-column:5; grid-row:3; }
+    .term-grid > :nth-child(18) { grid-column:6; grid-row:3; }
+    .term-grid > :nth-child(19) { grid-column:1; grid-row:4; }
+    .term-grid > :nth-child(20) { grid-column:2; grid-row:4; }
+    .term-grid > :nth-child(21) { grid-column:3; grid-row:4; }
+    .term-grid > :nth-child(22) { grid-column:4; grid-row:4; }
+    .term-grid > :nth-child(23) { grid-column:5; grid-row:4; }
+    .term-grid > :nth-child(24) { grid-column:6; grid-row:4; }
+    .term-grid > :nth-child(25) { grid-column:1; grid-row:5; }
+    .term-grid > :nth-child(26) { grid-column:2; grid-row:5; }
+    .term-grid > :nth-child(27) { grid-column:3; grid-row:5; }
+    .term-grid > :nth-child(28) { grid-column:4; grid-row:5; }
+    .term-grid > :nth-child(29) { grid-column:5; grid-row:5; }
+    .term-grid > :nth-child(30) { grid-column:6; grid-row:5; }
+    .term-grid > :nth-child(31) { grid-column:1; grid-row:6; }
+    .term-grid > :nth-child(32) { grid-column:2; grid-row:6; }
+    .term-grid > :nth-child(33) { grid-column:3; grid-row:6; }
+    .term-grid > :nth-child(34) { grid-column:4; grid-row:6; }
+    .term-grid > :nth-child(35) { grid-column:5; grid-row:6; }
+    .term-grid > :nth-child(36) { grid-column:6; grid-row:6; }
+    .term-grid > :nth-child(37) { grid-column:1; grid-row:7; }
+    .term-grid > :nth-child(38) { grid-column:2; grid-row:7; }
+    .term-grid > :nth-child(39) { grid-column:3; grid-row:7; }
+    .term-grid > :nth-child(40) { grid-column:4; grid-row:7; }
+    .term-grid > :nth-child(41) { grid-column:5; grid-row:7; }
+    .term-grid > :nth-child(42) { grid-column:6; grid-row:7; }
+
+    /* ── Course Blocks ─────────────────────────── */
+    .course-block {
+      border-radius: 8px;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #8FA8CB;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      opacity: 0;
+      transform: scale(0.95);
+      transition: opacity 150ms ease, transform 150ms ease;
+      z-index: 2;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .course-block.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .block-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(0,0,0,0.62);
+      text-align: center;
+      line-height: 1.3;
+      pointer-events: none;
+    }
+
+    /* ── Show Selected Button ──────────────────── */
+    .show-selected-btn {
+      background: none;
+      border: none;
+      padding: 0 4px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: #1D1D1F;
+      text-decoration: underline;
+      cursor: pointer;
+      text-align: left;
+      flex-shrink: 0;
+    }
+
+    /* ── Selected Courses Modal ─────────────────── */
+    #selected-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 150ms ease;
+    }
+
+    #selected-modal.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .selected-card {
+      background: #FFFFFF;
+      border-radius: 16px;
+      padding: 28px;
+      width: 420px;
+      max-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.16), 0 0 1px rgba(0,0,0,0.06);
+      transform: scale(0.96);
+      transition: transform 150ms ease;
+    }
+
+    #selected-modal.visible .selected-card {
+      transform: scale(1);
+    }
+
+    .selected-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+
+    .selected-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1D1D1F;
+    }
+
+    #selected-list {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+
+    #selected-list::-webkit-scrollbar { width: 4px; }
+    #selected-list::-webkit-scrollbar-track { background: transparent; }
+    #selected-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+
+    .selected-empty {
+      font-size: 14px;
+      color: #6E6E73;
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    .selected-course-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .selected-course-row:last-child { border-bottom: none; }
+
+    .selected-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #8FA8CB;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+
+    .selected-course-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #1D1D1F;
+      line-height: 1.3;
+    }
+
+    .selected-course-meta {
+      font-size: 12px;
+      font-weight: 300;
+      color: #6E6E73;
+      margin-top: 2px;
+    }
+
+    /* ── Conflict Modal ────────────────────────── */
+    #conflict-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 150ms ease;
+    }
+
+    #conflict-modal.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .conflict-card {
+      background: #FFFFFF;
+      border-radius: 16px;
+      padding: 28px;
+      width: 400px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.16), 0 0 1px rgba(0,0,0,0.06);
+      transform: scale(0.96);
+      transition: transform 150ms ease;
+    }
+
+    #conflict-modal.visible .conflict-card {
+      transform: scale(1);
+    }
+
+    .conflict-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .conflict-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1D1D1F;
+    }
+
+    .conflict-close {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: rgba(0,0,0,0.06);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6E6E73;
+      flex-shrink: 0;
+    }
+
+    .conflict-close:hover { background: rgba(0,0,0,0.1); }
+
+    .conflict-body {
+      font-size: 14px;
+      font-weight: 400;
+      color: #6E6E73;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .conflict-body strong {
+      color: #1D1D1F;
+      font-weight: 500;
+    }
+
+    .conflict-btn {
+      width: 100%;
+      padding: 12px;
+      background: #0071E3;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 100ms ease;
+    }
+
+    .conflict-btn:hover { background: #0077ED; }
+
+    /* ── Block Tooltip ─────────────────────────── */
+    #block-tooltip {
+      position: fixed;
+      background: rgba(29, 29, 31, 0.92);
+      color: #FFFFFF;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      pointer-events: none;
+      z-index: 1000;
+      white-space: nowrap;
+      display: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    #block-tooltip.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Sidebar ─────────────────────────────── -->
+    <aside class="sidebar">
+
+      <!-- ECTS Tracker -->
+      <div class="ects-tracker card">
+        <div class="ects-display">
+          <span class="ects-number" id="ects-number">0</span>
+          <span class="ects-unit">ECTS selected</span>
+        </div>
+        <div class="ects-bar-track">
+          <div class="ects-bar-fill" id="ects-bar-fill"></div>
+        </div>
+        <div class="ects-sub" id="ects-sub">0 of 20 ECTS</div>
+      </div>
+
+      <button class="show-selected-btn" onclick="openSelectedModal()">Show courses selected</button>
+
+      <!-- Course List -->
+      <div class="course-selector card">
+
+        <!-- Cross-cultural Communication -->
+        <div class="course-item" data-course-id="ccc-a" onclick="toggleCourse('ccc-a')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Cross-cultural Communication A</div>
+            <div class="course-meta">Term 1 · Mon · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+        <div class="course-item" data-course-id="ccc-b" onclick="toggleCourse('ccc-b')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Cross-cultural Communication B</div>
+            <div class="course-meta">Term 2 · Mon · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Managerial Accounting -->
+        <div class="course-item" data-course-id="ma-a" onclick="toggleCourse('ma-a')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Managerial Accounting A</div>
+            <div class="course-meta">Term 1 · Mon · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+        <div class="course-item" data-course-id="ma-b" onclick="toggleCourse('ma-b')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Managerial Accounting B</div>
+            <div class="course-meta">Term 2 · Mon · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Business Economics -->
+        <div class="course-item" data-course-id="be" onclick="toggleCourse('be')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Business Economics A</div>
+            <div class="course-meta">Term 1&amp;2 · Wed · P1 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Accounting Advanced -->
+        <div class="course-item" data-course-id="aa-a" onclick="toggleCourse('aa-a')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Accounting Advanced A</div>
+            <div class="course-meta">Term 1 · Wed · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+        <div class="course-item" data-course-id="aa-b" onclick="toggleCourse('aa-b')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Accounting Advanced B</div>
+            <div class="course-meta">Term 2 · Wed · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Strategy in Global Business -->
+        <div class="course-item" data-course-id="sgb-a" onclick="toggleCourse('sgb-a')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Strategy in Global Business A</div>
+            <div class="course-meta">Term 1 · Wed · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+        <div class="course-item" data-course-id="sgb-b" onclick="toggleCourse('sgb-b')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Strategy in Global Business B</div>
+            <div class="course-meta">Term 2 · Wed · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Management -->
+        <div class="course-item" data-course-id="mgmt-a" onclick="toggleCourse('mgmt-a')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Management A</div>
+            <div class="course-meta">Term 1 · Thu · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+        <div class="course-item" data-course-id="mgmt-b" onclick="toggleCourse('mgmt-b')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Management B</div>
+            <div class="course-meta">Term 2 · Thu · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Financial Services -->
+        <div class="course-item" data-course-id="fs-a" onclick="toggleCourse('fs-a')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Financial Services A</div>
+            <div class="course-meta">Term 1 · Thu · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+        <div class="course-item" data-course-id="fs-b" onclick="toggleCourse('fs-b')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Financial Services B</div>
+            <div class="course-meta">Term 2 · Thu · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Advanced Marketing in Global Business -->
+        <div class="course-item" data-course-id="amgb-a" onclick="toggleCourse('amgb-a')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Advanced Marketing in Global Business A</div>
+            <div class="course-meta">Term 1 · Thu · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+        <div class="course-item" data-course-id="amgb-b" onclick="toggleCourse('amgb-b')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Advanced Marketing in Global Business B</div>
+            <div class="course-meta">Term 2 · Thu · P3–4 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Statistics for Business Studies -->
+        <div class="course-item" data-course-id="stats" onclick="toggleCourse('stats')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Statistics for Business Studies A</div>
+            <div class="course-meta">Term 1&amp;2 · Thu · P5 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Entrepreneurship -->
+        <div class="course-item" data-course-id="entre" onclick="toggleCourse('entre')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">Entrepreneurship</div>
+            <div class="course-meta">Term 1&amp;2 · Fri · P4 · 2 ECTS</div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- China Business Studies -->
+        <div class="course-item" data-course-id="cbs" onclick="toggleCourse('cbs')">
+          <div class="course-checkbox"></div>
+          <div class="course-info">
+            <div class="course-name">China Business Studies A</div>
+            <div class="course-meta">Term 1&amp;2 · Fri · P5 · 2 ECTS</div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ── Calendar Area ────────────────────────── -->
+    <main class="calendar-area">
+
+      <!-- Term 1 -->
+      <div class="term-wrapper card">
+        <div class="term-title">Term 1</div>
+        <div class="term-grid" data-term="1">
+          <div class="g-corner"></div>
+          <div class="g-day">Mon</div>
+          <div class="g-day">Tue</div>
+          <div class="g-day">Wed</div>
+          <div class="g-day">Thu</div>
+          <div class="g-day">Fri</div>
+
+          <div class="g-period"><span class="period-code">P1</span><span class="period-time">08:50</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P2</span><span class="period-time">10:40</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P3</span><span class="period-time">13:10</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P4</span><span class="period-time">15:00</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P5</span><span class="period-time">16:50</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P6</span><span class="period-time">18:40</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+        </div>
+      </div>
+
+      <!-- Term 2 -->
+      <div class="term-wrapper card">
+        <div class="term-title">Term 2</div>
+        <div class="term-grid" data-term="2">
+          <div class="g-corner"></div>
+          <div class="g-day">Mon</div>
+          <div class="g-day">Tue</div>
+          <div class="g-day">Wed</div>
+          <div class="g-day">Thu</div>
+          <div class="g-day">Fri</div>
+
+          <div class="g-period"><span class="period-code">P1</span><span class="period-time">08:50</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P2</span><span class="period-time">10:40</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P3</span><span class="period-time">13:10</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P4</span><span class="period-time">15:00</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P5</span><span class="period-time">16:50</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+
+          <div class="g-period"><span class="period-code">P6</span><span class="period-time">18:40</span></div>
+          <div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div><div class="g-cell"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div id="block-tooltip"></div>
+
+  <div id="selected-modal">
+    <div class="selected-card">
+      <div class="selected-header">
+        <span class="selected-title">Selected Courses</span>
+        <button class="conflict-close" onclick="closeSelectedModal()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div id="selected-list"></div>
+      <button class="conflict-btn" onclick="closeSelectedModal()">Close</button>
+    </div>
+  </div>
+
+  <div id="conflict-modal">
+    <div class="conflict-card">
+      <div class="conflict-header">
+        <span class="conflict-title">Timeslot unavailable</span>
+        <button class="conflict-close" onclick="closeConflict()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <p class="conflict-body" id="conflict-body"></p>
+      <button class="conflict-btn" onclick="closeConflict()">Got it</button>
+    </div>
+  </div>
+
+  <script>
+    const COURSES = [
+      { id: 'ccc-a',  name: 'Cross-cultural Communication A',         short: 'CCC A',           term: '1',   day: 'Mon', periods: [3,4], credits: 2 },
+      { id: 'ccc-b',  name: 'Cross-cultural Communication B',         short: 'CCC B',           term: '2',   day: 'Mon', periods: [3,4], credits: 2 },
+      { id: 'ma-a',   name: 'Managerial Accounting A',                short: 'Mgmt. Acc. A',    term: '1',   day: 'Mon', periods: [3,4], credits: 2 },
+      { id: 'ma-b',   name: 'Managerial Accounting B',                short: 'Mgmt. Acc. B',    term: '2',   day: 'Mon', periods: [3,4], credits: 2 },
+      { id: 'be',     name: 'Business Economics A',                   short: 'Bus. Econ.',       term: '1&2', day: 'Wed', periods: [1],   credits: 2 },
+      { id: 'aa-a',   name: 'Accounting Advanced A',                  short: 'Acc. Adv. A',     term: '1',   day: 'Wed', periods: [3,4], credits: 2 },
+      { id: 'aa-b',   name: 'Accounting Advanced B',                  short: 'Acc. Adv. B',     term: '2',   day: 'Wed', periods: [3,4], credits: 2 },
+      { id: 'sgb-a',  name: 'Strategy in Global Business A',          short: 'Strategy A',      term: '1',   day: 'Wed', periods: [3,4], credits: 2 },
+      { id: 'sgb-b',  name: 'Strategy in Global Business B',          short: 'Strategy B',      term: '2',   day: 'Wed', periods: [3,4], credits: 2 },
+      { id: 'mgmt-a', name: 'Management A',                           short: 'Management A',    term: '1',   day: 'Thu', periods: [3,4], credits: 2 },
+      { id: 'mgmt-b', name: 'Management B',                           short: 'Management B',    term: '2',   day: 'Thu', periods: [3,4], credits: 2 },
+      { id: 'fs-a',   name: 'Financial Services A',                   short: 'Fin. Services A', term: '1',   day: 'Thu', periods: [3,4], credits: 2 },
+      { id: 'fs-b',   name: 'Financial Services B',                   short: 'Fin. Services B', term: '2',   day: 'Thu', periods: [3,4], credits: 2 },
+      { id: 'amgb-a', name: 'Advanced Marketing in Global Business A',short: 'Marketing A',     term: '1',   day: 'Thu', periods: [3,4], credits: 2 },
+      { id: 'amgb-b', name: 'Advanced Marketing in Global Business B',short: 'Marketing B',     term: '2',   day: 'Thu', periods: [3,4], credits: 2 },
+      { id: 'stats',  name: 'Statistics for Business Studies A',      short: 'Statistics',      term: '1&2', day: 'Thu', periods: [5],   credits: 2 },
+      { id: 'entre',  name: 'Entrepreneurship',                       short: 'Entrepreneur.',   term: '1&2', day: 'Fri', periods: [4],   credits: 2 },
+      { id: 'cbs',    name: 'China Business Studies A',               short: 'China Biz.',      term: '1&2', day: 'Fri', periods: [5],   credits: 2 },
+    ];
+
+    // Grid column: col 1 = period labels, cols 2–6 = Mon–Fri
+    const DAY_COL = { Mon: 2, Tue: 3, Wed: 4, Thu: 5, Fri: 6 };
+
+    const selected = new Set();
+
+    function updateECTS() {
+      let total = 0;
+      selected.forEach(id => {
+        const c = COURSES.find(x => x.id === id);
+        if (c) total += c.credits;
+      });
+      document.getElementById('ects-number').textContent = total;
+      document.getElementById('ects-sub').textContent = total + ' of 20 ECTS';
+      document.getElementById('ects-bar-fill').style.width = Math.min(total / 20 * 100, 100) + '%';
+    }
+
+    // ── Tooltip ──────────────────────────────────
+    const tooltip = document.getElementById('block-tooltip');
+    let tooltipTimer;
+
+    function showTooltip(name, blockEl) {
+      clearTimeout(tooltipTimer);
+      tooltip.textContent = name;
+      tooltip.style.display = 'block';
+      requestAnimationFrame(() => {
+        const rect = blockEl.getBoundingClientRect();
+        const tw = tooltip.offsetWidth;
+        let left = rect.left + rect.width / 2 - tw / 2;
+        let top = rect.top - 44;
+        left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+        if (top < 8) top = rect.bottom + 8;
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+        tooltip.classList.add('visible');
+      });
+      tooltipTimer = setTimeout(hideTooltip, 3000);
+    }
+
+    function hideTooltip() {
+      tooltip.classList.remove('visible');
+      setTimeout(() => { tooltip.style.display = 'none'; }, 120);
+    }
+
+    document.addEventListener('click', hideTooltip);
+
+    // ── Blocks ───────────────────────────────────
+    function addBlock(grid, course) {
+      const col = DAY_COL[course.day];
+      // Grid row 1 = header, so period N is at row N+1
+      const startRow = course.periods[0] + 1;
+      const spanRows = course.periods.length;
+
+      const block = document.createElement('div');
+      block.className = 'course-block';
+      block.dataset.blockId = course.id;
+      block.style.gridColumn = col;
+      block.style.gridRow = startRow + ' / span ' + spanRows;
+      block.innerHTML = '<span class="block-label">' + course.short + '</span>';
+
+      block.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showTooltip(course.name, block);
+      });
+
+      grid.appendChild(block);
+      // Double rAF ensures initial opacity:0 is painted before transitioning in
+      requestAnimationFrame(() => requestAnimationFrame(() => block.classList.add('visible')));
+    }
+
+    function removeBlock(grid, courseId) {
+      const block = grid.querySelector('[data-block-id="' + courseId + '"]');
+      if (!block) return;
+      block.style.transition = 'opacity 120ms ease, transform 120ms ease';
+      block.style.opacity = '0';
+      block.style.transform = 'scale(0.95)';
+      setTimeout(() => block.remove(), 130);
+    }
+
+    function getGrids(term) {
+      if (term === '1&2') {
+        return [
+          document.querySelector('.term-grid[data-term="1"]'),
+          document.querySelector('.term-grid[data-term="2"]'),
+        ];
+      }
+      return [document.querySelector('.term-grid[data-term="' + term + '"]')];
+    }
+
+    // ── Conflict Detection ────────────────────────
+    function findConflict(course) {
+      const newTerms = course.term === '1&2' ? ['1', '2'] : [course.term];
+      for (const id of selected) {
+        const existing = COURSES.find(c => c.id === id);
+        if (!existing) continue;
+        const existingTerms = existing.term === '1&2' ? ['1', '2'] : [existing.term];
+        const sharedTerms = newTerms.filter(t => existingTerms.includes(t));
+        if (sharedTerms.length === 0) continue;
+        if (course.day !== existing.day) continue;
+        if (course.periods.some(p => existing.periods.includes(p))) {
+          return { existing, sharedTerms };
+        }
+      }
+      return null;
+    }
+
+    function showConflict(newCourse, conflict) {
+      const { existing, sharedTerms } = conflict;
+      const termStr = sharedTerms.length === 2 ? 'Terms 1 &amp; 2' : 'Term ' + sharedTerms[0];
+      const pStart = existing.periods[0];
+      const pEnd = existing.periods[existing.periods.length - 1];
+      const periodStr = pStart === pEnd ? 'P' + pStart : 'P' + pStart + '–' + pEnd;
+      document.getElementById('conflict-body').innerHTML =
+        '<strong>' + newCourse.name + '</strong> cannot be added because ' +
+        '<strong>' + existing.name + '</strong> already occupies ' +
+        '<strong>' + existing.day + ' ' + periodStr + '</strong> in ' + termStr + '. ' +
+        'Deselect it first if you want to add this course instead.';
+      document.getElementById('conflict-modal').classList.add('visible');
+    }
+
+    function closeConflict() {
+      document.getElementById('conflict-modal').classList.remove('visible');
+    }
+
+    document.getElementById('conflict-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeConflict();
+    });
+
+    function toggleCourse(id) {
+      const course = COURSES.find(c => c.id === id);
+      if (!course) return;
+
+      const itemEl = document.querySelector('[data-course-id="' + id + '"]');
+      const cbEl = itemEl.querySelector('.course-checkbox');
+      const grids = getGrids(course.term);
+
+      if (selected.has(id)) {
+        selected.delete(id);
+        cbEl.classList.remove('checked');
+        cbEl.innerHTML = '';
+        grids.forEach(g => removeBlock(g, id));
+      } else {
+        const conflict = findConflict(course);
+        if (conflict) {
+          showConflict(course, conflict);
+          return;
+        }
+        selected.add(id);
+        cbEl.classList.add('checked');
+        cbEl.innerHTML = '<svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        grids.forEach(g => addBlock(g, course));
+      }
+
+      updateECTS();
+    }
+    // ── Selected Courses Modal ────────────────────
+    function openSelectedModal() {
+      const list = document.getElementById('selected-list');
+      if (selected.size === 0) {
+        list.innerHTML = '<p class="selected-empty">No courses selected yet.</p>';
+      } else {
+        list.innerHTML = Array.from(selected).map(id => {
+          const c = COURSES.find(x => x.id === id);
+          const pStart = c.periods[0];
+          const pEnd = c.periods[c.periods.length - 1];
+          const periodStr = pStart === pEnd ? 'P' + pStart : 'P' + pStart + '–' + pEnd;
+          const termLabel = c.term === '1&2' ? 'Term 1 &amp; 2' : 'Term ' + c.term;
+          return '<div class="selected-course-row">' +
+            '<div class="selected-dot"></div>' +
+            '<div>' +
+              '<div class="selected-course-name">' + c.name + '</div>' +
+              '<div class="selected-course-meta">' + termLabel + ' · ' + c.day + ' · ' + periodStr + ' · ' + c.credits + ' ECTS</div>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
+      document.getElementById('selected-modal').classList.add('visible');
+    }
+
+    function closeSelectedModal() {
+      document.getElementById('selected-modal').classList.remove('visible');
+    }
+
+    document.getElementById('selected-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeSelectedModal();
+    });
+  </script>
+</body>
+</html>

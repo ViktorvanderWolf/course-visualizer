@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Course Schedule Visualizer</title>
+  <link rel="icon" id="favicon">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1047,6 +1048,25 @@
     document.getElementById('selected-modal').addEventListener('click', function(e) {
       if (e.target === this) closeSelectedModal();
     });
+    // ── Favicon: strip white background ──────────
+    (function () {
+      const img = new Image();
+      img.onload = function () {
+        const c = document.createElement('canvas');
+        c.width = c.height = 256;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, 256, 256);
+        const px = ctx.getImageData(0, 0, 256, 256);
+        for (let i = 0; i < px.data.length; i += 4) {
+          if (px.data[i] > 230 && px.data[i+1] > 230 && px.data[i+2] > 230) {
+            px.data[i+3] = 0;
+          }
+        }
+        ctx.putImageData(px, 0, 0);
+        document.getElementById('favicon').href = c.toDataURL('image/png');
+      };
+      img.src = 'Images/clock-transparent-free-png.webp';
+    })();
   </script>
 </body>
 </html>
